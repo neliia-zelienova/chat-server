@@ -7,7 +7,7 @@ const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY;
 /*
 const USERS_AVATARS = process.env.USERS_AVATARS;
 */
-const reg = async (req, res, next) => {
+const registartion = async (req, res, next) => {
   try {
     const user = await Users.findByEmail(req.body.email);
     if (user) {
@@ -18,18 +18,18 @@ const reg = async (req, res, next) => {
       });
     }
     const newUser = await Users.create(req.body);
-    const { _id, email, avatarURL, admin } = newUser;
+    const { _id, username, avatarURL, admin, bunned, mutted } = newUser;
 
     const token = jwt.sign({ id: newUser._id }, JWT_SECRET_KEY, {
-        expiresIn: '2h',
-      });
-  
-      await Users.updateToken(newUser?._id, token)
+      expiresIn: "2h",
+    });
+
+    await Users.updateToken(newUser?._id, token);
 
     return res.status(HttpCode.CREATED).json({
       status: "success",
       code: HttpCode.CREATED,
-      data: { _id, email, avatarURL, admin, token },
+      data: { _id, username, avatarURL, admin, token, bunned, mutted },
     });
   } catch (e) {
     next(e);
@@ -48,14 +48,60 @@ const login = async (req, res, next) => {
         message: "Email or password is wrong",
       });
     }
-
+    const { _id, username, avatarURL, admin, bunned, mutted } = user;
     const payload = { id: user.id };
     const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn: "2h" });
     await Users.updateToken(user.id, token);
     return res.status(HttpCode.OK).json({
       status: "success",
       code: HttpCode.OK,
-      data: { token },
+      data: { _id, username, avatarURL, admin, token, bunned, mutted },
+    });
+  } catch (e) {
+    next(e);
+  }
+};
+
+const logout = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const user = await Users.findById(userId);
+    if (!user) {
+      return res.status(HttpCode.UNAUTHORIZED).json({
+        status: "error",
+        code: HttpCode.UNAUTHORIZED,
+        message: "Not authorized",
+      });
+    }
+
+    await Users.updateToken(user.id, null);
+    return res.status(HttpCode.OK).json({
+      status: "success",
+      code: HttpCode.OK,
+    });
+  } catch (e) {
+    next(e);
+  }
+};
+
+const current = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    console.log("id", userId);
+    const user = await Users.findById(userId);
+    console.log("user", user);
+    if (!user) {
+      return res.status(HttpCode.UNAUTHORIZED).json({
+        status: "error",
+        code: HttpCode.UNAUTHORIZED,
+        message: "Email or password is wrong",
+      });
+    }
+    const { _id, username, avatarURL, admin, bunned, mutted } = user;
+    return res.status(HttpCode.OK).json({
+      status: "success",
+      code: HttpCode.OK,
+      data: { _id, username, avatarURL, admin, token, bunned, mutted },
     });
   } catch (e) {
     next(e);
@@ -83,8 +129,9 @@ const login = async (req, res, next) => {
 //   }
 // };
 
-
 module.exports = {
-  reg,
+  registartion,
   login,
+  logout,
+  current,
 };

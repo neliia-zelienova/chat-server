@@ -1,8 +1,10 @@
 const Joi = require("joi");
 
 const emailPattern = /\S+@\S+.\S+/;
+const userNamePattern = /[A-Za-z0-9]{3,}/;
 
-const schemaUser = Joi.object({
+const schemaSignupUser = Joi.object({
+  username: Joi.string().regex(userNamePattern).required(),
   email: Joi.string()
     .regex(emailPattern)
     .email({
@@ -11,7 +13,17 @@ const schemaUser = Joi.object({
     })
     .required(),
   password: Joi.string().required(),
-  admin: Joi.boolean().optional(),
+});
+
+const schemaLoginUser = Joi.object({
+  email: Joi.string()
+    .regex(emailPattern)
+    .email({
+      minDomainSegments: 2,
+      tlds: { allow: ["com", "net", "uk"] },
+    })
+    .required(),
+  password: Joi.string().required(),
 });
 
 const validate = async (schema, body, next) => {
@@ -23,9 +35,12 @@ const validate = async (schema, body, next) => {
   }
 };
 
-const validateUser = (req, _res, next) => {
-  return validate(schemaUser, req.body, next);
+const validateSignupUser = (req, _res, next) => {
+  return validate(schemaSignupUser, req.body, next);
 };
 
+const validateLoginUser = (req, _res, next) => {
+  return validate(schemaLoginUser, req.body, next);
+};
 
-module.exports = { validateUser };
+module.exports = { validateSignupUser, validateLoginUser };

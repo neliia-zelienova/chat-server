@@ -7,13 +7,10 @@ const SALT_FACTOR = 6;
 
 const userSchema = new Schema(
   {
-    admin: {
-      type: Boolean,
-      default: false,
-    },
-    password: {
+    username: {
       type: String,
-      required: [true, "Password is required"],
+      required: [true, "Username is required"],
+      unique: true,
     },
     email: {
       type: String,
@@ -24,11 +21,23 @@ const userSchema = new Schema(
         return re.test(String(value).toLowerCase());
       },
     },
-    muted: {
+    password: {
+      type: String,
+      required: [true, "Password is required"],
+    },
+    admin: {
       type: Boolean,
       default: false,
     },
-    blocked: {
+    mutted: {
+      type: Boolean,
+      default: false,
+    },
+    bunned: {
+      type: Boolean,
+      default: false,
+    },
+    online: {
       type: Boolean,
       default: false,
     },
