@@ -4,8 +4,8 @@ const findById = (id) => {
   return User.findOne({ _id: id });
 };
 
-const findByEmail = (email) => {
-  return User.findOne({ email });
+const findByUsername = (username) => {
+  return User.findOne({ username });
 };
 
 const findByToken = (token) => {
@@ -28,17 +28,13 @@ const updateAvatar = (id, avatarURL) => {
   return User.updateOne({ _id: id }, { avatarURL });
 };
 
-const toggleOnlineByToken = (token, online) => {
-  return User.updateOne({ token }, { online });
-};
-
 const toggleMute = async (id) => {
-  const { mutted } = await Users.findOne({ _id: id });
+  const { mutted } = await User.findOne({ _id: id });
   return User.updateOne({ _id: id }, { mutted: !mutted });
 };
 
 const toggleBun = async (id) => {
-  const { bunned } = await Users.findOne({ _id: id });
+  const { bunned } = await User.findOne({ _id: id });
   return User.updateOne({ _id: id }, { bunned: !bunned });
 };
 
@@ -50,16 +46,25 @@ const allUsers = () => {
   return User.find();
 };
 
+const toggleOnline = (id, online) => {
+  return User.updateOne({ _id: id }, { online });
+};
+
+const getAdmin = () => {
+  return User.findOne({ admin: true });
+};
+
 module.exports = {
   findById,
-  findByEmail,
+  findByUsername,
   findByToken,
   create,
   updateToken,
   updateAvatar,
   onlineUsers,
   allUsers,
-  toggleOnlineByToken,
   toggleMute,
   toggleBun,
+  toggleOnline,
+  getAdmin,
 };

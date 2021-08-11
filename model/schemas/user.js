@@ -1,7 +1,7 @@
-const gravatar = require("gravatar");
+// const gravatar = require("gravatar");
 const { Schema, model } = require("mongoose");
 const bcrypt = require("bcryptjs");
-const { nanoid } = require("nanoid");
+// const { nanoid } = require("nanoid");
 
 const SALT_FACTOR = 6;
 
@@ -10,22 +10,31 @@ const userSchema = new Schema(
     username: {
       type: String,
       required: [true, "Username is required"],
+      index: true,
       unique: true,
+      // validate(value) {
+      //   const regex = /[A-Za-z0-9]{3,}/;
+      //   return regex.test(String(value).toLowerCase());
+      // },
     },
-    email: {
-      type: String,
-      required: [true, "Email is required"],
-      unique: true,
-      validate(value) {
-        const re = /\S+@\S+.\S+/gi;
-        return re.test(String(value).toLowerCase());
-      },
-    },
+    // email: {
+    //   type: String,
+    //   required: [true, "Email is required"],
+    //   unique: true,
+    //   validate(value) {
+    //     const re = /\S+@\S+.\S+/gi;
+    //     return re.test(String(value).toLowerCase());
+    //   },
+    // },
     password: {
       type: String,
       required: [true, "Password is required"],
     },
     admin: {
+      type: Boolean,
+      default: false,
+    },
+    online: {
       type: Boolean,
       default: false,
     },
@@ -37,26 +46,22 @@ const userSchema = new Schema(
       type: Boolean,
       default: false,
     },
-    online: {
-      type: Boolean,
-      default: false,
-    },
     token: {
       type: String,
       default: null,
     },
-    avatarURL: {
-      type: String,
-      default: function () {
-        return gravatar.url(this.email, { s: 250 }, true);
-      },
-    },
+    // avatarURL: {
+    //   type: String,
+    //   default: function () {
+    //     return gravatar.url(this.email, { s: 250 }, true);
+    //   },
+    // },
   },
   { versionKey: false, timestamps: true }
 );
 
-userSchema.path("email").validate((value) => {
-  const regEx = /\S+@\S+.\S+/gi;
+userSchema.path("username").validate((value) => {
+  const regEx = /[A-Za-z0-9]{3,}/;
   return regEx.test(String(value));
 });
 
