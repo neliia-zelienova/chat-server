@@ -9,7 +9,9 @@ const findByUsername = (username) => {
 };
 
 const findByToken = (token) => {
-  return User.findOne({ token });
+  return User.findOne({ token }).select(
+    "-password -createdAt -updatedAt -token"
+  );
 };
 
 const create = async (options) => {
@@ -29,8 +31,9 @@ const updateAvatar = (id, avatarURL) => {
 };
 
 const toggleMute = async (id) => {
-  const { mutted } = await User.findOne({ _id: id });
-  return User.updateOne({ _id: id }, { mutted: !mutted });
+  const { muted } = await User.findOne({ _id: id });
+  console.log("toggleMute", muted);
+  return User.updateOne({ _id: id }, { muted: !muted });
 };
 
 const toggleBun = async (id) => {
@@ -39,11 +42,13 @@ const toggleBun = async (id) => {
 };
 
 const onlineUsers = () => {
-  return User.find({ online: true });
+  return User.find({ online: true }).select(
+    "-password -createdAt -updatedAt -token"
+  );
 };
 
 const allUsers = () => {
-  return User.find();
+  return User.find().select("-password -createdAt -updatedAt -token");
 };
 
 const toggleOnline = (id, online) => {

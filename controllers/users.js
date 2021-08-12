@@ -15,7 +15,7 @@ const login = async (req, res, next) => {
     // Register user if not exist
     if (!user) {
       const newUser = await Users.create(req.body);
-      const { _id, username, avatarURL, admin, bunned, online, mutted } =
+      const { _id, username, avatarURL, admin, bunned, online, muted } =
         newUser;
 
       const token = jwt.sign({ id: newUser._id }, JWT_SECRET_KEY, {
@@ -34,7 +34,7 @@ const login = async (req, res, next) => {
           token,
           online,
           bunned,
-          mutted,
+          muted,
         },
       });
     }
@@ -47,7 +47,7 @@ const login = async (req, res, next) => {
         message: "Username or password is wrong",
       });
     } else {
-      const { _id, username, avatarURL, admin, bunned, online, mutted } = user;
+      const { _id, username, avatarURL, admin, bunned, online, muted } = user;
       const payload = { id: user.id };
       const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn: "2h" });
       await Users.updateToken(user.id, token);
@@ -62,7 +62,7 @@ const login = async (req, res, next) => {
           token,
           online,
           bunned,
-          mutted,
+          muted,
         },
       });
     }
@@ -93,30 +93,6 @@ const logout = async (req, res, next) => {
   }
 };
 
-const current = async (req, res, next) => {
-  try {
-    const userId = req.user._id;
-    // console.log("id", userId);
-    const user = await Users.findById(userId);
-    // console.log("user", user);
-    if (!user) {
-      return res.status(HttpCode.UNAUTHORIZED).json({
-        status: "error",
-        code: HttpCode.UNAUTHORIZED,
-        message: "Username or password is wrong",
-      });
-    }
-    const { _id, username, avatarURL, admin, bunned, mutted } = user;
-    return res.status(HttpCode.OK).json({
-      status: "success",
-      code: HttpCode.OK,
-      data: { _id, username, avatarURL, admin, token, bunned, mutted },
-    });
-  } catch (e) {
-    next(e);
-  }
-};
-
 // const avatars = async (req, res, next) => {
 //   try {
 //     const id = req.user.id;
@@ -141,5 +117,4 @@ const current = async (req, res, next) => {
 module.exports = {
   login,
   logout,
-  current,
 };

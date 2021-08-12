@@ -38,7 +38,7 @@ const userSchema = new Schema(
       type: Boolean,
       default: false,
     },
-    mutted: {
+    muted: {
       type: Boolean,
       default: false,
     },
