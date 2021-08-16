@@ -1,4 +1,5 @@
 const User = require("./schemas/user");
+const { getColor } = require("../helpers/color-picker");
 
 const findById = (id) => {
   return User.findOne({ _id: id });
@@ -15,10 +16,11 @@ const findByToken = (token) => {
 };
 
 const create = async (options) => {
+  const color = getColor(44, 153);
   const count = await User.countDocuments();
   let admin = false;
   if (count === 0) admin = true;
-  const user = new User({ ...options, admin });
+  const user = new User({ ...options, admin, color });
   return await user.save();
 };
 
@@ -32,13 +34,12 @@ const updateAvatar = (id, avatarURL) => {
 
 const toggleMute = async (id) => {
   const { muted } = await User.findOne({ _id: id });
-  console.log("toggleMute", muted);
   return User.updateOne({ _id: id }, { muted: !muted });
 };
 
-const toggleBun = async (id) => {
-  const { bunned } = await User.findOne({ _id: id });
-  return User.updateOne({ _id: id }, { bunned: !bunned });
+const toggleBan = async (id) => {
+  const { banned } = await User.findOne({ _id: id });
+  return User.updateOne({ _id: id }, { banned: !banned });
 };
 
 const onlineUsers = () => {
@@ -69,7 +70,7 @@ module.exports = {
   onlineUsers,
   allUsers,
   toggleMute,
-  toggleBun,
+  toggleBan,
   toggleOnline,
   getAdmin,
 };

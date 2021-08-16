@@ -42,13 +42,17 @@ const userSchema = new Schema(
       type: Boolean,
       default: false,
     },
-    bunned: {
+    banned: {
       type: Boolean,
       default: false,
     },
     token: {
       type: String,
       default: null,
+    },
+    color: {
+      type: String,
+      default: "000000",
     },
     // avatarURL: {
     //   type: String,
