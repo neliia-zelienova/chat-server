@@ -38,8 +38,8 @@ const toggleMute = async (id) => {
 };
 
 const toggleBan = async (id) => {
-  const { banned } = await User.findOne({ _id: id });
-  return User.updateOne({ _id: id }, { banned: !banned });
+  const user = await User.findOne({ _id: id });
+  return User.updateOne({ _id: id }, { banned: !user.banned });
 };
 
 const onlineUsers = () => {

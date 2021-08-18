@@ -126,9 +126,8 @@ module.exports = function (io) {
           );
           const socketsList = connectedSocketsList(io);
           const muttedUser = socketsList.find(
-            (client) => client.user._id.toString() === userId.toString()
+            (client) => client.user?._id.toString() === userId.toString()
           );
-          console.log("muttedUser", muttedUser);
           if (muttedUser) {
             io.to(muttedUser.socketId).emit("user data:mute", muted);
           }
@@ -147,65 +146,69 @@ module.exports = function (io) {
       });
 
       client.on("admin:toggle-ban", async (userId) => {
-        // check is admin baning
-        const { admin } = await Users.findById(client.data.user._id);
-        if (admin) {
-          await Users.toggleBan(userId);
-          const { _id, banned, muted, online, admin, username } =
-            await Users.findById(userId);
-          const banMessageData = createMessageData(
-            "info",
-            `${muted ? "banned" : "unbanned"}`,
-            username
-          );
-          broadcast("banned:message", {
-            user: { _id, banned, muted, online, admin, username },
-            banMessageData,
-          });
-          if (banned) {
-            // Get connected sockets array
-            const socketsList = connectedSocketsList(io);
-            const bannedUser = socketsList.find(
-              (client) => client.user._id.toString() === userId.toString()
+        if (userId) {
+          // check is admin baning
+          const { admin } = await Users.findById(client.data.user._id);
+          if (admin) {
+            await Users.toggleBan(userId);
+            const { _id, banned, muted, online, admin, username } =
+              await Users.findById(userId);
+            const banMessageData = createMessageData(
+              "info",
+              `${banned ? "banned" : "unbanned"}`,
+              username
             );
-            if (bannedUser) {
-              const { _id, banned, muted, online, admin, username } =
-                bannedUser;
-              io.to(bannedUser?.socketId).emit("user data:ban", {
-                username,
-                _id,
-                banned,
-                muted,
-                online,
-                admin,
-              });
-              io.sockets.sockets.get(bannedUser?.socketId).disconnect(true);
+            broadcast("banned:message", {
+              user: { _id, banned, muted, online, admin, username },
+              banMessageData,
+            });
+            if (banned) {
+              // Get connected sockets array
+              const socketsList = connectedSocketsList(io);
+              const bannedUser = socketsList.find(
+                (client) => client.user?._id.toString() === userId.toString()
+              );
+              if (bannedUser) {
+                const { _id, banned, muted, online, admin, username } =
+                  bannedUser;
+                io.to(bannedUser?.socketId).emit("user data:ban", {
+                  username,
+                  _id,
+                  banned,
+                  muted,
+                  online,
+                  admin,
+                });
+                io.sockets.sockets.get(bannedUser?.socketId).disconnect(true);
+              }
             }
           }
         }
       });
 
       client.on("disconnect", async () => {
-        console.log("disconnect", client.data.user.username);
-        await Users.toggleOnline(client.data.user._id, false);
+        if (client.data.user) {
+          console.log("disconnect", client.data.user.username);
+          await Users.toggleOnline(client.data.user._id, false);
 
-        const userDisconnectedMessage = createMessageData(
-          "info",
-          "disconnected",
-          client.data.user.username
-        );
-        broadcast("message", userDisconnectedMessage);
+          const userDisconnectedMessage = createMessageData(
+            "info",
+            "disconnected",
+            client.data.user.username
+          );
+          broadcast("message", userDisconnectedMessage);
 
-        const onlineUsers = await Users.onlineUsers();
-        broadcast("users", onlineUsers);
+          const onlineUsers = await Users.onlineUsers();
+          broadcast("users", onlineUsers);
 
-        const connectedSockets = connectedSocketsList(io);
-        const admin = connectedSockets.find(
-          (socket) => socket.user?.admin === true
-        );
-        if (admin?.socketId) {
-          const allUsers = await Users.allUsers();
-          io.to(admin?.socketId).emit("all users", allUsers);
+          const connectedSockets = connectedSocketsList(io);
+          const admin = connectedSockets.find(
+            (socket) => socket.user?.admin === true
+          );
+          if (admin?.socketId) {
+            const allUsers = await Users.allUsers();
+            io.to(admin?.socketId).emit("all users", allUsers);
+          }
         }
       });
 
