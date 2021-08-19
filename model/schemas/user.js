@@ -1,7 +1,5 @@
-// const gravatar = require("gravatar");
 const { Schema, model } = require("mongoose");
 const bcrypt = require("bcryptjs");
-// const { nanoid } = require("nanoid");
 
 const SALT_FACTOR = 6;
 
@@ -12,23 +10,19 @@ const userSchema = new Schema(
       required: [true, "Username is required"],
       index: true,
       unique: true,
-      // validate(value) {
-      //   const regex = /[A-Za-z0-9]{3,}/;
-      //   return regex.test(String(value).toLowerCase());
-      // },
+      validate(value) {
+        const regex = /[A-Za-z0-9]{3,}/;
+        return regex.test(String(value).toLowerCase());
+      },
     },
-    // email: {
-    //   type: String,
-    //   required: [true, "Email is required"],
-    //   unique: true,
-    //   validate(value) {
-    //     const re = /\S+@\S+.\S+/gi;
-    //     return re.test(String(value).toLowerCase());
-    //   },
-    // },
     password: {
       type: String,
       required: [true, "Password is required"],
+      validate(value) {
+        const regex =
+          /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{6,}$/;
+        return regex.test(String(value).toLowerCase());
+      },
     },
     admin: {
       type: Boolean,
@@ -54,12 +48,6 @@ const userSchema = new Schema(
       type: String,
       default: "000000",
     },
-    // avatarURL: {
-    //   type: String,
-    //   default: function () {
-    //     return gravatar.url(this.email, { s: 250 }, true);
-    //   },
-    // },
   },
   { versionKey: false, timestamps: true }
 );
