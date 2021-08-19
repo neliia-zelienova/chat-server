@@ -49,6 +49,32 @@ module.exports = function (io) {
         if (err) {
           return next(new Error("Token error"));
         }
+        next();
+      });
+    }
+  })
+    // middleware for banned users
+    .use(async (socket, next) => {
+      const user = await Users.findByToken(socket.handshake.query.token);
+      if (user) {
+        if (user?.banned) {
+          socket.data = null;
+          return next(new Error("Banned by admin"));
+        }
+        next();
+      } else {
+        return next(new Error("User not found"));
+      }
+    })
+    // middelware to prevent same user connection
+    .use(async (socket, next) => {
+      const socketsList = connectedSocketsList(io);
+      const user = await Users.findByToken(socket.handshake.query.token);
+      const doubleSocket = socketsList?.find(
+        (item) => item.user?._id.toString() === user?._id.toString()
+      );
+      if (doubleSocket) return next(new Error("double connection"));
+      else {
         const user = await Users.findByToken(socket.handshake.query.token);
         if (user) {
           socket.data.user = user;
@@ -56,25 +82,9 @@ module.exports = function (io) {
             await Users.toggleOnline(user._id, true);
           }
         }
-        next();
-      });
-    }
-  })
-    // middleware for banned users
-    .use(async (socket, next) => {
-      const user = await Users.findById(socket.data?.user?._id);
-      if (user?.banned) return next(new Error("Banned by admin"));
+      }
       next();
     })
-    // middelware to prevent connection same user
-    // .use(async (socket, next) => {
-    //   const socketsList = connectedSocketsList(io);
-    //   const doubleSocket = socketsList?.find(
-    //     (item) => item.user._id.toString() === socket.data.user._id.toString()
-    //   );
-    //   if (doubleSocket) return next(new Error("Already connected"));
-    //   next();
-    // })
     .on("connection", async (client) => {
       // Get connected sockets array
       const socketsList = connectedSocketsList(io);
@@ -90,6 +100,14 @@ module.exports = function (io) {
       if (adminData?.socketId) {
         const allUsers = await Users.allUsers();
         io.to(adminData?.socketId).emit("all users", allUsers);
+      }
+      if (client.data.user) {
+        const userConnectedMessage = createMessageData(
+          "info",
+          "connected",
+          client.data.user.username
+        );
+        broadcast("message", userConnectedMessage);
       }
 
       client.on("message", async (message, userId) => {
@@ -109,7 +127,7 @@ module.exports = function (io) {
               broadcast("message", messageData);
             } else io.to(client.id).emit("message:denied length");
           } else io.to(client.id).emit("message:denied timeout");
-        }
+        } else io.to(client.id).emit("message:denied muted");
       });
 
       client.on("admin:toggle-mute", async (userId) => {
@@ -186,11 +204,15 @@ module.exports = function (io) {
         }
       });
 
-      client.on("disconnect", async () => {
+      // client.on("disconnecting", (reason) => {
+      //   console.log("disconnecting");
+      // });
+
+      client.on("disconnecting", async (reason) => {
+        console.log("disconnecting reason", reason);
         if (client.data.user) {
           console.log("disconnect", client.data.user.username);
           await Users.toggleOnline(client.data.user._id, false);
-
           const userDisconnectedMessage = createMessageData(
             "info",
             "disconnected",

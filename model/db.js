@@ -1,6 +1,20 @@
 const mongoose = require("mongoose");
 require("dotenv").config();
+
+const Fixtures = require("node-mongodb-fixtures");
+const fixtures = new Fixtures({
+  dir: "fixtures",
+  mute: false, // do not mute the log output
+});
+
 const uriDb = process.env.URI_DB;
+
+fixtures
+  .connect(uriDb)
+  .then(() => fixtures.unload())
+  .then(() => fixtures.load())
+  .catch((e) => console.error(e))
+  .finally(() => fixtures.disconnect());
 
 const db = mongoose.connect(uriDb, {
   useNewUrlParser: true,

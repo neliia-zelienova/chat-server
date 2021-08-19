@@ -20,6 +20,7 @@
     "mongoose": "^5.13.5",
     "morgan": "^1.9.1",
     "nanoid": "^3.1.23",
+    "node-mongodb-fixtures": "^3.2.9",
     "nodemon": "^2.0.12",
     "passport": "^0.4.1",
     "passport-jwt": "^4.0.0",

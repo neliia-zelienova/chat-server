@@ -17,10 +17,7 @@ const findByToken = (token) => {
 
 const create = async (options) => {
   const color = getColor(44, 153);
-  const count = await User.countDocuments();
-  let admin = false;
-  if (count === 0) admin = true;
-  const user = new User({ ...options, admin, color });
+  const user = new User({ ...options, color });
   return await user.save();
 };
 
