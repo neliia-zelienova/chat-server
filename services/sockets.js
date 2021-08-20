@@ -44,8 +44,8 @@ const checkMessageTimeout = (client) => {
 
 module.exports = function (io) {
   io.use((socket, next) => {
-    if (socket.handshake.query && socket.handshake.query.token) {
-      jwt.verify(socket.handshake.query.token, JWT_SECRET_KEY, async (err) => {
+    if (socket.handshake.query?.token) {
+      jwt.verify(socket.handshake.query.token, JWT_SECRET_KEY, (err) => {
         if (err) {
           return next(new Error("Token error"));
         }
@@ -53,44 +53,35 @@ module.exports = function (io) {
       });
     }
   })
-    // middleware for banned users
+    // middelware to prevent same user connection and banned users
     .use(async (socket, next) => {
       const user = await Users.findByToken(socket.handshake.query.token);
       if (user) {
-        if (user?.banned) {
-          socket.data = null;
-          return next(new Error("Banned by admin"));
+        const socketsList = connectedSocketsList(io);
+        const doubleSocket = socketsList?.find(
+          (item) => item.user?._id.toString() === user?.id
+        );
+        if (doubleSocket) {
+          return next(new Error("double connection"));
+        } else {
+          if (user.banned) {
+            return next(new Error("Banned by admin"));
+          } else {
+            socket.data.user = user;
+            await Users.toggleOnline(user.id, true);
+            next();
+          }
         }
-        next();
       } else {
         return next(new Error("User not found"));
       }
-    })
-    // middelware to prevent same user connection
-    .use(async (socket, next) => {
-      const socketsList = connectedSocketsList(io);
-      const user = await Users.findByToken(socket.handshake.query.token);
-      const doubleSocket = socketsList?.find(
-        (item) => item.user?._id.toString() === user?._id.toString()
-      );
-      if (doubleSocket) return next(new Error("double connection"));
-      else {
-        const user = await Users.findByToken(socket.handshake.query.token);
-        if (user) {
-          socket.data.user = user;
-          if (user) {
-            await Users.toggleOnline(user._id, true);
-          }
-        }
-      }
-      next();
     })
     .on("connection", async (client) => {
       // Get connected sockets array
       const socketsList = connectedSocketsList(io);
       console.log("connectedSockets", socketsList.length);
       // Send userdata on client
-      io.to(client.id).emit("user data", client.data.user);
+      client.emit("user data", client.data.user);
       // Get and send online users list
       const onlineUsers = await Users.onlineUsers();
       broadcast("users", onlineUsers);
@@ -99,7 +90,7 @@ module.exports = function (io) {
 
       if (adminData?.socketId) {
         const allUsers = await Users.allUsers();
-        io.to(adminData?.socketId).emit("all users", allUsers);
+        io.to(adminData.socketId).emit("all users", allUsers);
       }
       if (client.data.user) {
         const userConnectedMessage = createMessageData(
@@ -123,20 +114,20 @@ module.exports = function (io) {
                 user.color
               );
               client.data.lastMessageAt = new Date();
-              io.to(client.id).emit("message:accepted");
+              client.emit("message:accepted");
               broadcast("message", messageData);
-            } else io.to(client.id).emit("message:denied length");
-          } else io.to(client.id).emit("message:denied timeout");
-        } else io.to(client.id).emit("message:denied muted");
+            } else client.emit("message:denied length");
+          } else client.emit("message:denied timeout");
+        } else client.emit("message:denied muted");
       });
 
-      client.on("admin:toggle-mute", async (userId) => {
-        // check is admin muting
-        const { admin } = await Users.findById(client.data.user._id);
-        if (admin) {
+      if (client.data.user?.admin) {
+        client.on("admin:toggle-mute", async (userId) => {
+          // check is admin muting
           await Users.toggleMute(userId);
-          const { _id, banned, muted, online, admin, username } =
-            await Users.findById(userId);
+          const { _id, banned, muted, online, username } = await Users.findById(
+            userId
+          );
           const muteMessageData = createMessageData(
             "info",
             `${muted ? "muted" : "unmuted"}`,
@@ -156,53 +147,50 @@ module.exports = function (io) {
               banned,
               muted,
               online,
-              admin,
             },
             muteMessageData,
           });
-        }
-      });
+        });
 
-      client.on("admin:toggle-ban", async (userId) => {
-        if (userId) {
-          // check is admin baning
-          const { admin } = await Users.findById(client.data.user._id);
-          if (admin) {
-            await Users.toggleBan(userId);
-            const { _id, banned, muted, online, admin, username } =
-              await Users.findById(userId);
-            const banMessageData = createMessageData(
-              "info",
-              `${banned ? "banned" : "unbanned"}`,
-              username
-            );
-            broadcast("banned:message", {
-              user: { _id, banned, muted, online, admin, username },
-              banMessageData,
-            });
-            if (banned) {
-              // Get connected sockets array
-              const socketsList = connectedSocketsList(io);
-              const bannedUser = socketsList.find(
-                (client) => client.user?._id.toString() === userId.toString()
+        client.on("admin:toggle-ban", async (userId) => {
+          if (userId) {
+            // check is admin baning
+            const { admin } = await Users.findById(client.data.user._id);
+            if (admin) {
+              await Users.toggleBan(userId);
+              const { _id, banned, muted, online, admin, username } =
+                await Users.findById(userId);
+              const banMessageData = createMessageData(
+                "info",
+                `${banned ? "banned" : "unbanned"}`,
+                username
               );
-              if (bannedUser) {
-                const { _id, banned, muted, online, admin, username } =
-                  bannedUser;
-                io.to(bannedUser?.socketId).emit("user data:ban", {
-                  username,
-                  _id,
-                  banned,
-                  muted,
-                  online,
-                  admin,
-                });
-                io.sockets.sockets.get(bannedUser?.socketId).disconnect(true);
+              broadcast("banned:message", {
+                user: { _id, banned, muted, online, admin, username },
+                banMessageData,
+              });
+              if (banned) {
+                // Get connected sockets array
+                const socketsList = connectedSocketsList(io);
+                const bannedUser = socketsList.find(
+                  (client) => client.user?._id.toString() === userId.toString()
+                );
+                if (bannedUser) {
+                  const { _id, banned, muted, online, username } = bannedUser;
+                  io.to(bannedUser?.socketId).emit("user data:ban", {
+                    username,
+                    _id,
+                    banned,
+                    muted,
+                    online,
+                  });
+                  io.sockets.sockets.get(bannedUser.socketId).disconnect(true);
+                }
               }
             }
           }
-        }
-      });
+        });
+      }
 
       // client.on("disconnecting", (reason) => {
       //   console.log("disconnecting");
@@ -223,13 +211,9 @@ module.exports = function (io) {
           const onlineUsers = await Users.onlineUsers();
           broadcast("users", onlineUsers);
 
-          const connectedSockets = connectedSocketsList(io);
-          const admin = connectedSockets.find(
-            (socket) => socket.user?.admin === true
-          );
-          if (admin?.socketId) {
+          if (adminData?.socketId) {
             const allUsers = await Users.allUsers();
-            io.to(admin?.socketId).emit("all users", allUsers);
+            io.to(adminData.socketId).emit("all users", allUsers);
           }
         }
       });

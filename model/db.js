@@ -9,12 +9,12 @@ const fixtures = new Fixtures({
 
 const uriDb = process.env.URI_DB;
 
-fixtures
-  .connect(uriDb)
-  .then(() => fixtures.unload())
-  .then(() => fixtures.load())
-  .catch((e) => console.error(e))
-  .finally(() => fixtures.disconnect());
+// fixtures
+//   .connect(uriDb)
+//   .then(() => fixtures.unload())
+//   .then(() => fixtures.load())
+//   .catch((e) => console.error(e))
+//   .finally(() => fixtures.disconnect());
 
 const db = mongoose.connect(uriDb, {
   useNewUrlParser: true,
