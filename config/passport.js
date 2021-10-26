@@ -3,7 +3,7 @@ const { Strategy, ExtractJwt } = require("passport-jwt");
 require("dotenv").config();
 const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY;
 
-const Users = require("../model/users");
+const Users = require("../controllers/db/users");
 
 const opts = {
   jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),

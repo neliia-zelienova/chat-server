@@ -1,0 +1,23 @@
+{
+  "development": {
+    "username": "root",
+    "password": "NEW!cgu89bjo",
+    "database": "chat-db",
+    "host": "127.0.0.1",
+    "dialect": "mysql"
+  },
+  "test": {
+    "username": "root",
+    "password": "NEW!cgu89bjo",
+    "database": "chat-db",
+    "host": "127.0.0.1",
+    "dialect": "mysql"
+  },
+  "production": {
+    "username": "root",
+    "password": "NEW!cgu89bjo",
+    "database": "chat-db",
+    "host": "127.0.0.1",
+    "dialect": "mysql"
+  }
+}

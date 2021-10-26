@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "node ./bin/server.js",
+    "prebuild": "tslint -c tslint.json -p tsconfig.json --fix",
+    "build": "tsc",
+    "start": "tsc & node ./bin/server.js",
     "start:dev": "nodemon ./bin/server.js"
   },
   "dependencies": {
@@ -17,13 +19,14 @@
     "http-errors": "~1.6.3",
     "joi": "^17.4.2",
     "jsonwebtoken": "^8.5.1",
-    "mongoose": "^5.13.5",
-    "morgan": "^1.9.1",
+    "morgan": "^1.10.0",
+    "mysql": "^2.18.1",
+    "mysql2": "^2.3.0",
     "nanoid": "^3.1.23",
-    "node-mongodb-fixtures": "^3.2.9",
     "nodemon": "^2.0.12",
     "passport": "^0.4.1",
     "passport-jwt": "^4.0.0",
+    "sequelize": "^6.6.5",
     "socket.io": "^4.1.3"
   }
 }

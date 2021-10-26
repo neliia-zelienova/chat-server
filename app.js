@@ -10,9 +10,7 @@ const corsOptions = {
 };
 
 var usersRouter = require("./routes/users");
-
 var app = express();
-const http = require("http").createServer(app);
 
 const formatsLogger = app.get("env") === "development" ? "dev" : "short";
 

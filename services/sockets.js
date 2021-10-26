@@ -1,9 +1,12 @@
 const jwt = require("jsonwebtoken");
-const Users = require("../model/users");
+const Users = require("../controllers/db/users");
+const Messages = require("../controllers/db/messages");
 const { nanoid } = require("nanoid");
 require("dotenv").config();
 
 const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY;
+
+const MAX_MESSAGE_LENGTH = 200;
 
 const connectedSocketsList = (io) => {
   return [...io.sockets.sockets.values()].map(
@@ -15,60 +18,77 @@ const connectedSocketsList = (io) => {
   );
 };
 
-const getFormattedDate = () => {
-  let options = {
-    timeZone: "Europe/Kiev",
-    hour12: false,
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-    hour: "numeric",
-    minute: "numeric",
-    second: "numeric",
-  };
-  return new Date().toLocaleString([], options);
-};
-
-const createMessageData = (type, message, username, color) => {
+const createMessageData = (type, message, username) => {
   const id = nanoid();
-  messageDate = getFormattedDate();
-  return { id, type, message, messageDate, username, color };
+  return { id, type, message, username };
 };
 
-const checkMessageTimeout = (client) => {
-  const currentTime = new Date();
-  if (client.data.lastMessageAt) {
-    return currentTime - client.data.lastMessageAt > 15000;
-  } else return true;
+const sendAllUsers = async (io, socketsList, Model) => {
+  const adminData = socketsList.filter((client) => client.user.admin);
+  if (adminData) {
+    const allUsers = await Model.allUsers();
+    adminData.forEach((item) =>
+      io.to(item?.socketId).emit("all users", allUsers)
+    );
+  }
+};
+
+const reactOnStateChange = async (io, state, userId, Users, broadcast) => {
+  const user = await Users.findById(userId);
+  const socketsList = connectedSocketsList(io);
+  const toggledUser = socketsList.find(
+    (client) => client.user?.id.toString() === userId.toString()
+  );
+  if (toggledUser) {
+    io.to(toggledUser.socketId).emit(`user data:${state}`, user[state]);
+    if (user.banned) {
+      io.sockets.sockets.get(toggledUser.socketId).disconnect(true);
+    }
+  }
+  const toggleMessageData = createMessageData(
+    "info",
+    user.muted ? `${state}` : `un${state}`,
+    user.username
+  );
+  broadcast(`${state}:message`, {
+    user,
+    toggleMessageData,
+  });
 };
 
 module.exports = function (io) {
+  let userId = null;
   io.use((socket, next) => {
     if (socket.handshake.query?.token) {
-      jwt.verify(socket.handshake.query.token, JWT_SECRET_KEY, (err) => {
-        if (err) {
-          return next(new Error("Token error"));
+      jwt.verify(
+        socket.handshake.query.token,
+        JWT_SECRET_KEY,
+        (err, decoded) => {
+          if (err) {
+            return next(new Error("Token error"));
+          }
+          userId = decoded.id;
+          next();
         }
-        next();
-      });
+      );
     }
   })
     // middelware to prevent same user connection and banned users
     .use(async (socket, next) => {
-      const user = await Users.findByToken(socket.handshake.query.token);
+      const user = await Users.findById(userId);
       if (user) {
         const socketsList = connectedSocketsList(io);
         const doubleSocket = socketsList?.find(
-          (item) => item.user?._id.toString() === user?.id
+          (item) => item.user?.id.toString() === userId
         );
         if (doubleSocket) {
-          return next(new Error("double connection"));
+          return next(new Error("Double connection"));
         } else {
           if (user.banned) {
             return next(new Error("Banned by admin"));
           } else {
             socket.data.user = user;
-            await Users.toggleOnline(user.id, true);
+            await Users.toggleOnline(userId, true);
             next();
           }
         }
@@ -82,16 +102,14 @@ module.exports = function (io) {
       console.log("connectedSockets", socketsList.length);
       // Send userdata on client
       client.emit("user data", client.data.user);
+      const history = await Messages.historyMessages();
+      client.emit("history", history);
       // Get and send online users list
       const onlineUsers = await Users.onlineUsers();
       broadcast("users", onlineUsers);
 
-      const adminData = socketsList.find((client) => client.user?.admin);
+      await sendAllUsers(io, socketsList, Users);
 
-      if (adminData?.socketId) {
-        const allUsers = await Users.allUsers();
-        io.to(adminData.socketId).emit("all users", allUsers);
-      }
       if (client.data.user) {
         const userConnectedMessage = createMessageData(
           "info",
@@ -103,91 +121,37 @@ module.exports = function (io) {
 
       client.on("message", async (message, userId) => {
         const user = await Users.findById(userId);
+        let reason = "";
         // If user are alowed to send a messages - broadcast to everyone
         if (!user?.muted) {
-          if (checkMessageTimeout(client)) {
-            if (message.length <= 200) {
-              const messageData = createMessageData(
-                "text",
-                message,
-                user.username,
-                user.color
-              );
-              client.data.lastMessageAt = new Date();
+          const mesageAllowed = await Users.newMesageAllowed(userId);
+          if (mesageAllowed) {
+            if (message.length <= MAX_MESSAGE_LENGTH) {
+              const data = await Messages.create({
+                text: message,
+                userId,
+              });
               client.emit("message:accepted");
-              broadcast("message", messageData);
-            } else client.emit("message:denied length");
-          } else client.emit("message:denied timeout");
-        } else client.emit("message:denied muted");
+              broadcast("message", data);
+            } else reason = "length";
+          } else reason = "timeout";
+        } else reason = "muted";
+        if (reason) {
+          client.emit(`message:denied ${reason}`);
+        }
       });
 
       if (client.data.user?.admin) {
         client.on("admin:toggle-mute", async (userId) => {
-          // check is admin muting
           await Users.toggleMute(userId);
-          const { _id, banned, muted, online, username } = await Users.findById(
-            userId
-          );
-          const muteMessageData = createMessageData(
-            "info",
-            `${muted ? "muted" : "unmuted"}`,
-            username
-          );
-          const socketsList = connectedSocketsList(io);
-          const muttedUser = socketsList.find(
-            (client) => client.user?._id.toString() === userId.toString()
-          );
-          if (muttedUser) {
-            io.to(muttedUser.socketId).emit("user data:mute", muted);
-          }
-          broadcast("muted:message", {
-            user: {
-              username,
-              _id,
-              banned,
-              muted,
-              online,
-            },
-            muteMessageData,
-          });
+          await reactOnStateChange(io, "muted", userId, Users, broadcast);
         });
 
         client.on("admin:toggle-ban", async (userId) => {
           if (userId) {
             // check is admin baning
-            const { admin } = await Users.findById(client.data.user._id);
-            if (admin) {
-              await Users.toggleBan(userId);
-              const { _id, banned, muted, online, admin, username } =
-                await Users.findById(userId);
-              const banMessageData = createMessageData(
-                "info",
-                `${banned ? "banned" : "unbanned"}`,
-                username
-              );
-              broadcast("banned:message", {
-                user: { _id, banned, muted, online, admin, username },
-                banMessageData,
-              });
-              if (banned) {
-                // Get connected sockets array
-                const socketsList = connectedSocketsList(io);
-                const bannedUser = socketsList.find(
-                  (client) => client.user?._id.toString() === userId.toString()
-                );
-                if (bannedUser) {
-                  const { _id, banned, muted, online, username } = bannedUser;
-                  io.to(bannedUser?.socketId).emit("user data:ban", {
-                    username,
-                    _id,
-                    banned,
-                    muted,
-                    online,
-                  });
-                  io.sockets.sockets.get(bannedUser.socketId).disconnect(true);
-                }
-              }
-            }
+            await Users.toggleBan(userId);
+            await reactOnStateChange(io, "banned", userId, Users, broadcast);
           }
         });
       }
@@ -197,10 +161,8 @@ module.exports = function (io) {
       // });
 
       client.on("disconnecting", async (reason) => {
-        console.log("disconnecting reason", reason);
         if (client.data.user) {
-          console.log("disconnect", client.data.user.username);
-          await Users.toggleOnline(client.data.user._id, false);
+          await Users.toggleOnline(client.data.user.id, false);
           const userDisconnectedMessage = createMessageData(
             "info",
             "disconnected",
@@ -211,10 +173,8 @@ module.exports = function (io) {
           const onlineUsers = await Users.onlineUsers();
           broadcast("users", onlineUsers);
 
-          if (adminData?.socketId) {
-            const allUsers = await Users.allUsers();
-            io.to(adminData.socketId).emit("all users", allUsers);
-          }
+          // const socketsList = connectedSocketsList(io);
+          await sendAllUsers(io, socketsList, Users);
         }
       });
 
