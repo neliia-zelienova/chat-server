@@ -49,6 +49,7 @@ const userSchema = new Schema(
       type: String,
       default: "000000",
     },
+    messages: [{ type: Schema.Types.ObjectId, ref: "Message" }],
   },
   { versionKey: false, timestamps: true }
 );
@@ -70,6 +71,6 @@ userSchema.methods.validPassword = async function (password) {
   return await bcrypt.compare(String(password), this.password);
 };
 
-const User = model("user", userSchema);
+const User = model("User", userSchema);
 
 module.exports = User;

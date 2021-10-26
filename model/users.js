@@ -11,8 +11,20 @@ const findByUsername = (username) => {
 
 const findByToken = (token) => {
   return User.findOne({ token }).select(
-    "-password -createdAt -updatedAt -token"
+    "-password -createdAt -updatedAt -token -messages"
   );
+};
+
+const newMesageAllowed = async (id) => {
+  const userData = await User.findOne({ _id: id }).populate("messages");
+  if (userData.messages.length) {
+    const lastMessageAt = new Date(
+      userData.messages[userData.messages.length - 1].createdAt
+    );
+    const currentTine = new Date();
+    return currentTine - lastMessageAt > 15000;
+  }
+  return true;
 };
 
 const create = async (options) => {
@@ -41,12 +53,12 @@ const toggleBan = async (id) => {
 
 const onlineUsers = () => {
   return User.find({ online: true }).select(
-    "-password -createdAt -updatedAt -token"
+    "-password -createdAt -updatedAt -token -messages"
   );
 };
 
 const allUsers = () => {
-  return User.find().select("-password -createdAt -updatedAt -token");
+  return User.find().select("-password -createdAt -updatedAt -token -messages");
 };
 
 const toggleOnline = (id, online) => {
@@ -61,6 +73,7 @@ module.exports = {
   findById,
   findByUsername,
   findByToken,
+  newMesageAllowed,
   create,
   updateToken,
   updateAvatar,
